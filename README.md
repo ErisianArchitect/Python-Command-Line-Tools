@@ -5,5 +5,5 @@ Some scripts may require certain Python packages to be installed, such as Click.
 
 # Scripts
 ##### *touch.py*
-..* Requirements:
+Requirements:
 - [Click](https://pypi.org/project/click/)
