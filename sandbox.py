@@ -63,18 +63,16 @@ def split_module_parts(text : str):
 
 @click.command()
 @click.option('-i', '--import', 'imports', type=str, required=False, multiple=True, help="Modules to import.")
-@click.option('-m','--module','modules', type=str, required=False, multiple=True, help="Module globals are copied to interpreter globals.")
 @click.option('-s', '--script', 'scripts', type=click.Path(exists=True, resolve_path=True), required=False, multiple=True, help="Script globals are copied to interpreter globals.")
 def command_line(
     imports = (),
-    modules = (),
     scripts = ()
     ):
     """
     Starts a Python interactive interpreter with chosen imports, as well as importing modules and scripts into globals.
     """
-    if not modules and not scripts and not imports:
-        print('No modules, scripts, or imports were provided. Aborting operation.')
+    if not scripts and not imports:
+        print('No imports or scripts were provided. Aborting operation.')
     with tempfile.TemporaryDirectory() as d:
         script_path = os.path.join(d, 'interactive.py')
         with open(script_path, 'w') as f:
@@ -82,6 +80,7 @@ def command_line(
 
             # This function simply writes a line to the file.
             def putl(s : str, *extra):
+                "Write line to open file."
                 if type(s) is not str:
                     s = str(s)
                 if extra:
@@ -116,6 +115,24 @@ def command_line(
             #       -i math@sqrt=math_sqrt,
             #       -i math=pymath
             
+            # We create a filter function for the members so that we can get aliases.
+            def alias_filter(s : str):
+                """
+                Returns (identifier, alias)
+                If s does not contain '=', returns (identifier, identifier).
+                """
+                # If the '=' character is found, that means there is an alias.
+                # We can find that alias by splitting with the '=' character.
+                if '=' in s:
+                    left, right = s.split('=')
+                    # We return the left and right side of that split as a tuple.
+                    return (left, right)
+                else:
+                    # If there is no alias, we will just return the input text
+                    # as a tuple where both values are the input text.
+                    return (s, s)
+            
+            # We loop through the imports provided by the user.
             for imp in imports:
                 # Relative import
                 if '@' in imp:
@@ -128,20 +145,47 @@ def command_line(
                     # We want to check if the module is a valid module before importing.
                     if not check_module(module_name):
                         continue
-                    members = member_text.split(',')
-                    def _filter(s : str):
-                        """
-                        Returns (identifier, alias)
-                        If s does not contain '=', returns (identifier, identifier).
-                        """
-                        if '=' in s:
-                            left, right = s.split('=')
-                            return (left, right)
-                        else:
-                            return (s, s)
-                    members = tuple(map(_filter, members))
+                    # This is where we split the members.
+                    # We create a new tuple of members filtered with the alias_filter function.
+                    members = tuple(map(alias_filter, member_text.split(',')))
+                    # Check if members is empty:
+                    if not members:
+                        print(f'No members provided for module <{module_name}>.')
+                        continue
+                    # Write some generated code to import the module's dictionary into a temporary variable
+                    putl('tmp = importlib_module_delete.import_module(', repr(module_name), ').__dict__')
+                    # Create a list of the temporary members in the generated code file
+                    putl('tmp_members = [', ', '.join(map(repr, members)), ']')
 
-                    putl('tmp = importlib_module_delete.import_module(', module_name, ').__dict__')
+                    # Loop through the temporary members, adding each to the globals with the alias name.
+                    putl('for mem in tmp_members:')
+                    putl('\t', 'if mem[0] in tmp:')
+                    putl('\t\t', 'globals()[mem[1]] = tmp[mem[0]]')
+
+                    # Now we must delete the temporary variables so they don't clutter
+                    # up our global namespace.
+                    putl('del tmp_members')
+                    putl('del tmp')
+                # Alias import
+                elif '=' in imp:
+                    # Get the module name and the alias we want to apply to that module.
+                    module_name, alias = alias_filter(imp)
+                    # Write our import line to the generated code file
+                    putl(alias, ' = importlib_module_delete.import_module(', repr(module_name), ')')
+                # Regular import
+                else:
+                    putl('import ', imp)
+            for scr in scripts:
+                if '@' in scr:
+                    module_name, member_text = scr.split('@')
+                    if not os.path.isfile(module_name):
+                        print('Script does not seem to exist.\n', 'Path:', repr(module_name))
+                        continue
+                    members = tuple(map(alias_filter, member_text.split(',')))
+                    if not members:
+                        print(f'No members provided for script {repr(module_name)}')
+                        continue
+                    putl('tmp = runpy_module_delete.run_path(', repr(module_name), ')')
                     putl('tmp_members = [', ', '.join(map(repr, members)), ']')
 
                     putl('for mem in tmp_members:')
@@ -150,49 +194,13 @@ def command_line(
 
                     putl('del tmp_members')
                     putl('del tmp')
-
-                # Alias import
-                elif '=' in imp:
-                    module_name, alias = imp.split('=')
-
-                # Regular import
                 else:
-                    pass
-                module_name = imp
-                alias = None
-                if '=' in imp:
-                    module_name, alias = imp.split('=')
-                if not check_module(module_name):
-                    continue
-                putl(alias, ' = importlib_module_delete.import_module(', repr(module_name), ')')
-                if members:
-                    putl('tmp_members = {', ', '.join(map(repr, members)), ' }')
-                    putl('globals().update({ k : v for k, v in tmp.items() if k in tmp_members })')
-                    putl('del tmp_members')
-                else:
-                    putl("globals().update({k : v for k, v in tmp.items() if not k.startswith('_') })")
-            # This function is used to write generated code to                     
-            def put_injection(func_name, arg, check = True):
-                module_name, members = split_module_parts(arg)
-                if check and not check_module(module_name):
-                    return False
-                # Get the globals from the module and store it in a temporary variable.
-                putl('tmp = ', func_name, '(', repr(module_name), ')')
-                putl('if type(tmp) is not dict:')
-                putl('\t', 'tmp = tmp.__dict__')
-                # Check if the user asked for specific members of the module (-m module:member1,member2,member3)
-                if members:
-                    putl('tmp_members = { ', ', '.join(map(lambda v: repr(v), members)), ' }')
-                    putl('globals().update({ k : v for k, v in tmp.items() if k in tmp_members })')
-                    putl('del tmp_members')
-                else:
-                    putl("globals().update({ k : v for k, v in tmp.items() if not k.startswith('_') })")
-                putl('del tmp')
-                return True
-            for mod in modules:
-                put_injection('importlib_module_delete.import_module', mod)
-            for scr in scripts:
-                put_injection('runpy_module_delete.run_path', scr, False)
+                    if not os.path.isfile(scr):
+                        print('Script does not seem to exist.\n', 'Path:', repr(scr))
+                        continue
+                    putl('tmp = runpy_module_delete.run_path(', repr(scr), ')')
+                    putl('globals().update({ k : v for k, v in tmp.items() if not k.startswith("_") })')
+                    putl('del tmp')
             putl('del runpy_module_delete')
             putl('del importlib_module_delete')
         
