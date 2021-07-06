@@ -87,7 +87,7 @@ def command_line(
                     s = ''.join([s, *extra])
                 f.write(s)
                 f.write('\n')
-                
+
             putl('# Auto generated script for interactive shell.')
             # Add runpy to the auto generated script, give it a more unique name.
             # The unique name allows the user to import runpy if they wish without
@@ -153,27 +153,33 @@ def command_line(
                     if not members:
                         print(f'No members provided for module <{module_name}>.')
                         continue
-                    cont_flag = False
-                    for mem in members:
-                        if not mem[1].isidentifier():
-                            cont_flag = True
-                            print(f'{repr(mem[1])} is not an identifier.')
-                            break
-                    if cont_flag:
-                        continue
                     # Write some generated code to import the module's dictionary into a temporary variable
                     putl('tmp = importlib_module_delete.import_module(', repr(module_name), ').__dict__')
-                    # Create a list of the temporary members in the generated code file
-                    putl('tmp_members = [', ', '.join(map(repr, members)), ']')
+                    if len(members) == 1 and members[0] == '*':
+                        putl('globals().update({ k : v for k, v in tmp.items() if not k.startswith("_") })')
+                    else:
+                        cont_flag = False
+                        for mem in members:
+                            if not mem[1].isidentifier():
+                                cont_flag = True
+                                print(f'{repr(mem[1])} is not an identifier.')
+                                break
+                        if cont_flag:
+                            # We are going to continue, so delete tmp. It would be better to have not created it.
+                            putl('del tmp')
+                            # This means import all.
+                            continue
+                        # Create a list of the temporary members in the generated code file
+                        putl('tmp_members = [', ', '.join(map(repr, members)), ']')
 
-                    # Loop through the temporary members, adding each to the globals with the alias name.
-                    putl('for mem in tmp_members:')
-                    putl('\t', 'if mem[0] in tmp:')
-                    putl('\t\t', 'globals()[mem[1]] = tmp[mem[0]]')
+                        # Loop through the temporary members, adding each to the globals with the alias name.
+                        putl('for mem in tmp_members:')
+                        putl('\t', 'if mem[0] in tmp:')
+                        putl('\t\t', 'globals()[mem[1]] = tmp[mem[0]]')
 
-                    # Now we must delete the temporary variables so they don't clutter
-                    # up our global namespace.
-                    putl('del tmp_members')
+                        # Now we must delete the temporary variables so they don't clutter
+                        # up our global namespace.
+                        putl('del tmp_members')
                     putl('del tmp')
                 # Alias import
                 elif '=' in imp:
