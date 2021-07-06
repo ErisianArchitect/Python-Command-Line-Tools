@@ -61,8 +61,6 @@ def split_module_parts(text : str):
 # Should there be a filter (such as a regex filter) that can be optionally applied?
 # Should there be an optional list of names to inject?
 
-from math import *
-
 @click.command()
 @click.option('-i', '--import', 'imports', type=str, required=False, multiple=True, help="Modules to import.")
 @click.option('-m','--module','modules', type=str, required=False, multiple=True, help="Module globals are copied to interpreter globals.")
@@ -107,11 +105,73 @@ def command_line(
 
             # check_module() simply checks if the given name is a valid module name
             # and also checks if the module exists.
+
+            # Steps:
+            #   Check if there is @ symbol
+            #   @ symbol represents a member you would like to import from module
+            #   If not @ symbol exists, check for '=', which means <module>=<alias>
+            #   Aliases also work for member names.
+            #   So the possible syntax would be:
+            #       -i math@sqrt,acos,sin,pow
+            #       -i math@sqrt=math_sqrt,
+            #       -i math=pymath
             
             for imp in imports:
-                if not check_module(imp):
+                # Relative import
+                if '@' in imp:
+                    # imp would be a value like:
+                    #   math@acos,sin,sqrt
+                    # Where acos, sin, and sqrt are members that you want to import from math.
+                    # We simply split with the '@' character, then the right side of that split
+                    # is then split with the ',' character, getting our member names.
+                    module_name, member_text = imp.split('@')
+                    # We want to check if the module is a valid module before importing.
+                    if not check_module(module_name):
+                        continue
+                    members = member_text.split(',')
+                    def _filter(s : str):
+                        """
+                        Returns (identifier, alias)
+                        If s does not contain '=', returns (identifier, identifier).
+                        """
+                        if '=' in s:
+                            left, right = s.split('=')
+                            return (left, right)
+                        else:
+                            return (s, s)
+                    members = tuple(map(_filter, members))
+
+                    putl('tmp = importlib_module_delete.import_module(', module_name, ').__dict__')
+                    putl('tmp_members = [', ', '.join(map(repr, members)), ']')
+
+                    putl('for mem in tmp_members:')
+                    putl('\t', 'if mem[0] in tmp:')
+                    putl('\t\t', 'globals()[mem[1]] = tmp[mem[0]]')
+
+                    putl('del tmp_members')
+                    putl('del tmp')
+
+                # Alias import
+                elif '=' in imp:
+                    module_name, alias = imp.split('=')
+
+                # Regular import
+                else:
+                    pass
+                module_name = imp
+                alias = None
+                if '=' in imp:
+                    module_name, alias = imp.split('=')
+                if not check_module(module_name):
                     continue
-                putl(f'import {imp}')
+                putl(alias, ' = importlib_module_delete.import_module(', repr(module_name), ')')
+                if members:
+                    putl('tmp_members = {', ', '.join(map(repr, members)), ' }')
+                    putl('globals().update({ k : v for k, v in tmp.items() if k in tmp_members })')
+                    putl('del tmp_members')
+                else:
+                    putl("globals().update({k : v for k, v in tmp.items() if not k.startswith('_') })")
+            # This function is used to write generated code to                     
             def put_injection(func_name, arg, check = True):
                 module_name, members = split_module_parts(arg)
                 if check and not check_module(module_name):
@@ -123,10 +183,10 @@ def command_line(
                 # Check if the user asked for specific members of the module (-m module:member1,member2,member3)
                 if members:
                     putl('tmp_members = { ', ', '.join(map(lambda v: repr(v), members)), ' }')
-                    putl("""globals().update({ k : v for k, v in tmp.items() if k in tmp_members })""")
+                    putl('globals().update({ k : v for k, v in tmp.items() if k in tmp_members })')
                     putl('del tmp_members')
                 else:
-                    putl("""globals().update({ k : v for k, v in tmp.items() if not k.startswith('_') })""")
+                    putl("globals().update({ k : v for k, v in tmp.items() if not k.startswith('_') })")
                 putl('del tmp')
                 return True
             for mod in modules:
