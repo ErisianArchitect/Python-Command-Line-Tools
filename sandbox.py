@@ -76,8 +76,6 @@ def command_line(
     with tempfile.TemporaryDirectory() as d:
         script_path = os.path.join(d, 'interactive.py')
         with open(script_path, 'w') as f:
-            # f.write(generated_source)
-
             # This function simply writes a line to the file.
             def putl(s : str, *extra):
                 "Write line to open file."
@@ -102,9 +100,6 @@ def command_line(
             putl('import sys')
             putl('sys.path.append(', repr(os.getcwd()), ')')
             putl('del sys')
-
-            # check_module() simply checks if the given name is a valid module name
-            # and also checks if the module exists.
 
             # Steps:
             #   Check if there is @ symbol
@@ -153,10 +148,11 @@ def command_line(
                     if not members:
                         print(f'No members provided for module <{module_name}>.')
                         continue
-                    # Write some generated code to import the module's dictionary into a temporary variable
-                    putl('tmp = importlib_module_delete.import_module(', repr(module_name), ').__dict__')
                     if len(members) == 1 and members[0] == '*':
+                        # Write some generated code to import the module's dictionary into a temporary variable
+                        putl('tmp = importlib_module_delete.import_module(', repr(module_name), ').__dict__')
                         putl('globals().update({ k : v for k, v in tmp.items() if not k.startswith("_") })')
+                        putl('del tmp')
                     else:
                         cont_flag = False
                         for mem in members:
@@ -165,10 +161,9 @@ def command_line(
                                 print(f'{repr(mem[1])} is not an identifier.')
                                 break
                         if cont_flag:
-                            # We are going to continue, so delete tmp. It would be better to have not created it.
-                            putl('del tmp')
-                            # This means import all.
                             continue
+                        # Write some generated code to import the module's dictionary into a temporary variable
+                        putl('tmp = importlib_module_delete.import_module(', repr(module_name), ').__dict__')
                         # Create a list of the temporary members in the generated code file
                         putl('tmp_members = [', ', '.join(map(repr, members)), ']')
 
@@ -180,7 +175,7 @@ def command_line(
                         # Now we must delete the temporary variables so they don't clutter
                         # up our global namespace.
                         putl('del tmp_members')
-                    putl('del tmp')
+                        putl('del tmp')
                 # Alias import
                 elif '=' in imp:
                     # Get the module name and the alias we want to apply to that module.
