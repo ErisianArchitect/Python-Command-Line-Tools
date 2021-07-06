@@ -87,6 +87,7 @@ def command_line(
                     s = ''.join([s, *extra])
                 f.write(s)
                 f.write('\n')
+                
             putl('# Auto generated script for interactive shell.')
             # Add runpy to the auto generated script, give it a more unique name.
             # The unique name allows the user to import runpy if they wish without
@@ -196,22 +197,32 @@ def command_line(
             # or
             #   --script="script.py@function_1,function_2,function_3"
             for scr in scripts:
+                # Check if we are importing specific members from the script.
                 if '@' in scr:
+                    # Separate the script name (module_name) from the members list.
                     module_name, member_text = scr.split('@')
+                    # Check that the file exists, continue if it doesn't (Click should have already done so)
                     if not os.path.isfile(module_name):
                         print('Script does not seem to exist.\n', 'Path:', repr(module_name))
                         continue
+                    # Create a tuple of members filtered through the alias_filter.
                     members = tuple(map(alias_filter, member_text.split(',')))
+                    # Check if members is empty, continuing if it is.
                     if not members:
                         print(f'No members provided for script {repr(module_name)}')
                         continue
+                    # Create a temporary variable to store the globals of the script that will be run.
                     putl('tmp = runpy_module_delete.run_path(', repr(module_name), ')')
+                    # Create a list of the members that we want to add within the generated script.
                     putl('tmp_members = [', ', '.join(map(repr, members)), ']')
-
+                    # loop through the members, attempting to add them to the globals dictionary.
                     putl('for mem in tmp_members:')
                     putl('\t', 'if mem[0] in tmp:')
                     putl('\t\t', 'globals()[mem[1]] = tmp[mem[0]]')
+                    # We can also optionally print a message to the user telling them if a member was
+                    # not found, and as such, not imported into the globals dictionary.
 
+                    # Delete our temporary variables.
                     putl('del tmp_members')
                     putl('del tmp')
                 # There is no '@' character in the provided input
