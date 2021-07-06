@@ -62,8 +62,8 @@ def split_module_parts(text : str):
 # Should there be an optional list of names to inject?
 
 @click.command()
-@click.option('-i', '--import', 'imports', type=str, required=False, multiple=True, help="Modules to import.")
-@click.option('-s', '--script', 'scripts', type=click.Path(exists=True, resolve_path=True), required=False, multiple=True, help="Script globals are copied to interpreter globals.")
+@click.option('-i', '--import', 'imports', type=str, required=False, multiple=True, help = 'Module to import. Syntax: "-i module" or "-i module@member1,member2,member3" or "-i module=alias"')
+@click.option('-s', '--script', 'scripts', type=click.Path(exists=True, resolve_path=True), required=False, multiple=True, help='Script file to execute and import globals from. Syntax: "-s script.py" or "-s script.py@member1,member2,member3"')
 def command_line(
     imports = (),
     scripts = ()
@@ -152,6 +152,14 @@ def command_line(
                     if not members:
                         print(f'No members provided for module <{module_name}>.')
                         continue
+                    cont_flag = False
+                    for mem in members:
+                        if not mem[1].isidentifier():
+                            cont_flag = True
+                            print(f'{repr(mem[1])} is not an identifier.')
+                            break
+                    if cont_flag:
+                        continue
                     # Write some generated code to import the module's dictionary into a temporary variable
                     putl('tmp = importlib_module_delete.import_module(', repr(module_name), ').__dict__')
                     # Create a list of the temporary members in the generated code file
@@ -170,11 +178,23 @@ def command_line(
                 elif '=' in imp:
                     # Get the module name and the alias we want to apply to that module.
                     module_name, alias = alias_filter(imp)
+                    if not alias.isidentifier():
+                        print(f'{repr(alias)} is not an identifier.')
+                        continue
                     # Write our import line to the generated code file
                     putl(alias, ' = importlib_module_delete.import_module(', repr(module_name), ')')
                 # Regular import
                 else:
                     putl('import ', imp)
+            # For the scripts, we will simply import all members into our global
+            # namespace unless the user provides members that they would like to
+            # specifically include using the '@' character.
+            # Input might look like this:
+            #   -s"script.py@function_1,function_2,function_3"
+            # or
+            #   -s script.py@function_1,function_2,function_3
+            # or
+            #   --script="script.py@function_1,function_2,function_3"
             for scr in scripts:
                 if '@' in scr:
                     module_name, member_text = scr.split('@')
@@ -194,18 +214,32 @@ def command_line(
 
                     putl('del tmp_members')
                     putl('del tmp')
+                # There is no '@' character in the provided input
+                # This means that it is a raw path, and we should treat it as such.
                 else:
+                    # Our path does not exist, so we tell the user and continue.
                     if not os.path.isfile(scr):
                         print('Script does not seem to exist.\n', 'Path:', repr(scr))
                         continue
+                    # Run the script at path, store the dictionary as a temporary variable `tmp`
                     putl('tmp = runpy_module_delete.run_path(', repr(scr), ')')
+                    # Update the globals with values from tmp that do not start with '_'
                     putl('globals().update({ k : v for k, v in tmp.items() if not k.startswith("_") })')
+                    # Delete our temporary variable to cleanup the global namespace.
                     putl('del tmp')
+            # Delete our temporary modules to cleanup the global namespace.
             putl('del runpy_module_delete')
             putl('del importlib_module_delete')
         
+        # Now we call Python with the -i (interactive) flag and pass in our generated script path
+        # By calling Python with the -i flag set, this allows us to execute our generated script
+        # then continue as the Python interactive interpreter after executing, thereby populating
+        # the global namespace with the globals from the generated script.
         subprocess.call(['python', '-i', script_path])
+        # We no longer need the script, so we delete it with os.remove
+        # (The file should automatically be removed after leaving scope because we are in a temporary directory)
         os.remove(script_path)
 
+# We didn't import this script as a module, so run the command_line function.
 if __name__ == '__main__':
     command_line()
