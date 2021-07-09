@@ -1,3 +1,10 @@
+"""
+This is a command line utility for generating code.
+It is a work in progress, and currently only supports
+generating C-Style comments.
+In the future, other languages will be supported as well.
+"""
+
 #requiered
 import enum
 import sys
