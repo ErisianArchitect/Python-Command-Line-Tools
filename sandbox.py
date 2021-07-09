@@ -112,6 +112,7 @@ def command_line(
             #       -i math=pymath
             
             # We create a filter function for the members so that we can get aliases.
+            # Aliases are represented in text with something like "module.path=alias"
             def alias_filter(s : str):
                 """
                 Returns (identifier, alias)
