@@ -10,3 +10,21 @@ Description:
 
 Requirements:
 - [Click](https://pypi.org/project/click/)
+
+### *sandbox.py*
+Description:
+- Creates a Python Interactive Shell environment with user specified imports
+
+Requirements:
+- [Click](https://pypi.org/project/click/)
+
+### *localinstall.py*
+Description:
+- Creates a .bat file at user specified install location (defaults to current directory).
+
+Notes:
+- This script is specifically for people that use Windows.
+
+### *codegen.py*
+Description:
+- Generates source code (right now only C-Style comments).
