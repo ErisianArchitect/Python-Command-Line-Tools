@@ -138,6 +138,7 @@ def command_line(
                     # Where acos, sin, and sqrt are members that you want to import from math.
                     # We simply split with the '@' character, then the right side of that split
                     # is then split with the ',' character, getting our member names.
+                    # The left side of the split is our module name.
                     module_name, member_text = imp.split('@')
                     # We want to check if the module is a valid module before importing.
                     if not check_module(module_name):
