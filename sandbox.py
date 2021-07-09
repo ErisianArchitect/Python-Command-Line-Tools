@@ -82,7 +82,7 @@ def command_line(
                 if type(s) is not str:
                     s = str(s)
                 if extra:
-                    s = ''.join([s, *extra])
+                    s = ''.join([s, *map(str, extra)])
                 f.write(s)
                 f.write('\n')
 
