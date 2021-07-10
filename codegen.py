@@ -51,6 +51,10 @@ def view_output(output, path=None):
             proc = subprocess.call([shutil.which('code'),'-n', out_path])
 
 def has_var(name : str) -> bool:
+    """
+    Determines if `name` is in os.environ.
+    This is helpful if you want to add flags in a batch/shell script.
+    """
     return name in os.environ
 
 @click.command()
