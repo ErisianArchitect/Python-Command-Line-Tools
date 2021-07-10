@@ -97,7 +97,9 @@ def command_line(
           lang = 'c'
     ):
     """
-    gen.py -h"This is a header." -d"This is the description." -h"Another header." -d"Another description."
+    This program is used for generating some source code.
+    Mostly it's for generating C-style comments. It does not currently support
+    any other programming language comments.
     """
     
     headers = list(headers)
