@@ -50,29 +50,29 @@ def view_output(output, path=None):
         
             proc = subprocess.call([shutil.which('code'),'-n', out_path])
 
-@click.group()
-def command_line():
-    pass
+def has_var(name : str) -> bool:
+    return name in os.environ
 
-@command_line.command(name='cpp')
-@click.option('/v', '--view', 'view',           required=False, is_flag=True, default=False)
-@click.option('/r','--randomize' ,'randomize',  required=False, is_flag=True, default=True)
-@click.option('/i', '--inside', 'inside',       required=False, is_flag=True, default=False)
-@click.option('/c', '--copy', 'copyresult',     required=False, default=False, is_flag=True)
-@click.option('/n', 'nocomments',               required=False, default=False, is_flag=True)
+@click.command()
+@click.option('/v', '--view', 'view',           required=False, is_flag=True, default=has_var('--view'))
+@click.option('/r','--randomize' ,'randomize',  required=False, is_flag=True, default=has_var('--randomize'))
+@click.option('/i', '--inside', 'inside',       required=False, is_flag=True, default=has_var('--inside'))
+@click.option('/c', '--copy', 'copyresult',     required=False, is_flag=True, default=has_var('--copy'))
+@click.option('/n', 'nocomments',               required=False, is_flag=True, default=has_var('--nocomments'))
 @click.option('-h', 'headers',                  required=False, multiple=True, default=None)
-@click.option('-d', 'descriptions',             required=False, type=str, multiple=True, default=None)
-@click.option('-r', 'regions',                  required = False, multiple=True, type=str)
-@click.option('-b','--begin', 'begin_stmts',     multiple=True, is_flag=True)
-@click.option('-e','--end', 'end_stmts',         multiple=True, is_flag=True)
+@click.option('-d', 'descriptions',             required=False, multiple=True, default=None)
+@click.option('-r', 'regions',                  required=False, multiple=True, default=None)
+@click.option('-b','--begin', 'begin_stmts',    multiple=True, is_flag=True)
+@click.option('-e','--end', 'end_stmts',        multiple=True, is_flag=True)
 @click.option('-c', 'setcomment',               multiple=True, is_flag=True)
 @click.option('--guard', 'guard',               type=str, required = False)
 @click.option('--out', 'output',                type=click.Path(exists=False, resolve_path=True),required=False, default=None)
-@click.option('--width', 'width',               type=int, default=60, required = False)
-@click.option('--indent', 'indent',             type=int, default=4, required = False)
-@click.option('--prefix', 'prefix',             type=str, default = '[', required = False)
-@click.option('--suffix', 'suffix',             type=str, default = ']', required = False)
-def cmd_cpp(
+@click.option('--width', 'width',               type=int, required = False, default=60)
+@click.option('--indent', 'indent',             type=int, required = False, default=4)
+@click.option('--prefix', 'prefix',             type=str, required = False, default = '[')
+@click.option('--suffix', 'suffix',             type=str, required = False, default = ']')
+@click.option('--lang', 'lang',                 type=click.Choice(['c', 'python', 'lua']), required=False, default='c')
+def command_line(
             view = False,
        randomize = True,
           inside = False,
@@ -90,6 +90,7 @@ def cmd_cpp(
           indent = 4,
           prefix = '[',
           suffix = ']',
+          lang = 'c'
     ):
     """
     gen.py -h"This is a header." -d"This is the description." -h"Another header." -d"Another description."
