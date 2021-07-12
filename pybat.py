@@ -17,17 +17,20 @@ install_directory = os.environ.get('PYLOCALINSTALLPATH') or '.'
 # I think you can also run python as an archive. I'm gonna test it.
 
 @click.command()
-@click.option('-u', '--uninstall', 'uninstall', is_flag=True, required=False, default=False)
+@click.argument('function', type=click.Choice(['install','uninstall']), required=True)
 @click.argument('script', type=click.Path(file_okay=True, dir_okay=True, exists=False), required=True)
-def command_line(script, uninstall = False):
+def command_line(function, script):
 
-	if uninstall:
+	if function == 'uninstall':
 		install_path = os.path.join(install_directory, script + '.bat')
 		if os.path.isfile(install_path):
 			os.remove(install_path)
 			print('Uninstalled!')
 		else:
 			print('Not found.')
+		return
+	if function != 'install':
+		print(f'What the f*** did you put in? Oh, function:{repr(function)}')
 		return
 	script_path = os.path.abspath(script)
 	script_name = os.path.splitext(os.path.basename(script_path))[0]
