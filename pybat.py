@@ -17,19 +17,27 @@ install_directory = os.environ.get('PYLOCALINSTALLPATH') or '.'
 # I think you can also run python as an archive. I'm gonna test it.
 
 @click.command()
-@click.argument('script', type=click.Path(file_okay=True, exists=True), required=True)
-def command_line(script):
+@click.option('-u', '--uninstall', 'uninstall', is_flag=True, required=False, default=False)
+@click.argument('script', type=click.Path(file_okay=True, dir_okay=True, exists=False), required=True)
+def command_line(script, uninstall = False):
+
+	if uninstall:
+		install_path = os.path.join(install_directory, script + '.bat')
+		if os.path.isfile(install_path):
+			os.remove(install_path)
+			print('Uninstalled!')
+		else:
+			print('Not found.')
+		return
 	script_path = os.path.abspath(script)
-	script_basename = os.path.basename(script_path)
-	script_name = os.path.splitext(script_basename)[0]
+	script_name = os.path.splitext(os.path.basename(script_path))[0]
 
 	batch_path = os.path.join(install_directory, script_name + '.bat')
 
-	batch_script = f'python "{script_path}" %*'
-
 	with open(batch_path, 'w') as bat:
-		bat.write(batch_script)
-	print('Created batch script pointing to provided script.')
+		bat.write(f'@echo off\npython "{script_path}" %*')
+	print(f'Created batch script at "{batch_path}"')
+	print(f'Which points to "{script_path}"')
 
 if __name__ == '__main__':
 	command_line()
