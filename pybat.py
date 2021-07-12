@@ -19,8 +19,8 @@ install_directory = os.environ.get('PYLOCALINSTALLPATH') or '.'
 @click.command()
 @click.argument('function', type=click.Choice(['install','uninstall']), required=True)
 @click.argument('script', type=click.Path(file_okay=True, dir_okay=True, exists=False), required=True)
-def command_line(function, script):
-
+@click.argument('alias', type=str, required=False)
+def command_line(function, script, alias):
 	if function == 'uninstall':
 		install_path = os.path.join(install_directory, script + '.bat')
 		if os.path.isfile(install_path):
