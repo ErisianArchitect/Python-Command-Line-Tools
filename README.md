@@ -18,7 +18,7 @@ Description:
 Requirements:
 - [Click](https://pypi.org/project/click/)
 
-### *localinstall.py*
+### *pybat.py*
 Description:
 - Creates a .bat file at user specified install location (defaults to current directory).
 
