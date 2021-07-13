@@ -25,13 +25,9 @@ from enum import Enum
 char_range = lambda first, last: (chr(_) for _ in range(ord(first), ord(last) + 1))
 
 _comment_prefixes = {
-    'python' : '#',
-    'lua' : '--',
-    'C#' : '//',
-    'C' : '//',
-    'C++' : '//',
-    'Java' : '//',
-    'Javascript' : '//'
+    'c'         : '// ',
+    'py'    : '# ',
+    'lua'       : '-- ',
 }
 
 __random_bits = [
@@ -85,7 +81,7 @@ def has_var(name : str) -> bool:
 @click.option('--indent', 'indent',             type=int, required = False, default=4)
 @click.option('--prefix', 'prefix',             type=str, required = False, default = '[')
 @click.option('--suffix', 'suffix',             type=str, required = False, default = ']')
-@click.option('--lang', 'lang',                 type=click.Choice(['c', 'python', 'lua']), required=False, default='c')
+@click.option('--lang', 'lang',                 type=click.Choice(['c', 'py', 'lua']), required=False, default='c')
 def command_line(
             view = False,
        randomize = True,
@@ -166,7 +162,7 @@ def command_line(
             cmd_buffer.append(description(descriptions[di]))
             di += 1
         elif v[:2] == '-c':
-            lines.append(compound(cmd_buffer, width, indent))
+            lines.append(compound(cmd_buffer, width, indent, _comment_prefixes[lang]))
             cmd_buffer.clear()
         elif v[:2] == '-r':
             if regions[ri][0] == '?':
@@ -177,7 +173,7 @@ def command_line(
             #     regions[ri] = read_file(regions[ri][1:])
             if not nocomments:
                 cmd_buffer.insert(0, header(regions[ri]))
-            note = compound(cmd_buffer, width, indent) if cmd_buffer else ''
+            note = compound(cmd_buffer, width, indent, _comment_prefixes[lang]) if cmd_buffer else ''
             cmd_buffer.clear()
             if inside:
                 lines.append(f'#pragma region {prefix}{regions[ri]}{suffix}')
@@ -192,7 +188,7 @@ def command_line(
                 lines.append(f'#pragma endregion {prefix}{regions[ri]}{suffix}')
             ri += 1
     if cmd_buffer:
-        lines.append(compound(cmd_buffer, width, indent))
+        lines.append(compound(cmd_buffer, width, indent, _comment_prefixes[lang]))
         cmd_buffer.clear()
     
     if guard is not None:
@@ -260,7 +256,7 @@ def wrap_text(text : str, width):
             lines[i:i+1] = textwrap.wrap(line, width)
     return lines
 
-def compound(args, width : int = 60, indent = 4):
+def compound(args, width : int = 60, indent = 4, prefix = _comment_prefixes['c']):
     if not args:
         return ''
     for i, v in enumerate(args):
@@ -276,8 +272,8 @@ def compound(args, width : int = 60, indent = 4):
     edge_width = 6
     inner_width = width - edge_width
     indented_width = inner_width - indent
-    _head = lambda t: ''.join(('//║ ', t, spacers[inner_width - len(t)], ' ║'))
-    _body = lambda t: ''.join(('//║ ', spacers[indent] , t, spacers[indented_width - len(t)], ' ║'))
+    _head = lambda t: ''.join((prefix, '║ ', t, spacers[inner_width - len(t)], ' ║'))
+    _body = lambda t: ''.join((prefix, '║ ', spacers[indent] , t, spacers[indented_width - len(t)], ' ║'))
 
     def _header(v : str):
         wrapped = wrap_text(v, inner_width)
@@ -287,9 +283,9 @@ def compound(args, width : int = 60, indent = 4):
         wrapped = wrap_text(v, indented_width)
         return '\n'.join(map(_body, wrapped))
 
-    top = ''.join(('//╔═', '═' * inner_width, '═╗'))
-    divider = ''.join(('//╠═', '═' * inner_width, '═╣'))
-    bottom = ''.join(('//╚═', '═' * inner_width, '═╝'))
+    top = ''.join((prefix, '╔═', '═' * inner_width, '═╗'))
+    divider = ''.join((prefix, '╠═', '═' * inner_width, '═╣'))
+    bottom = ''.join((prefix, '╚═', '═' * inner_width, '═╝'))
     lines = [top]
     last_i = len(args) - 1
     for i, v in enumerate(args):
