@@ -24,6 +24,16 @@ from enum import Enum
 
 char_range = lambda first, last: (chr(_) for _ in range(ord(first), ord(last) + 1))
 
+_comment_prefixes = {
+    'python' : '#',
+    'lua' : '--',
+    'C#' : '//',
+    'C' : '//',
+    'C++' : '//',
+    'Java' : '//',
+    'Javascript' : '//'
+}
+
 __random_bits = [
     *char_range('0','9'),
     *char_range('A','Z')
