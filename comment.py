@@ -29,6 +29,11 @@ import sys
 #	'@' represents reading from an external editor, such as VS Code.
 # comment.py [ "Header" 1:"Description" table(width=80)[ row[ left:"Left Justified" center:"Center Justified" right:"Right Justified" ] ] ]
 
+# Because of the nature of how this program will work
+# the arguments passed to the program will need to be
+# processed in order to extract the information passed
+# by the user.
+
 ##############################################################
 #                        #                                   #
 
