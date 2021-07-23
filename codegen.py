@@ -67,7 +67,7 @@ char_range = lambda first, last: (chr(_) for _ in range(ord(first), ord(last) + 
 
 _comment_prefixes = {
     'c'         : '// ',
-    'py'    : '# ',
+    'py'        : '# ',
     'lua'       : '-- ',
 }
 
@@ -136,7 +136,7 @@ def has_var(name : str) -> bool:
 @click.option('-c', 'setcomment',               multiple=True, is_flag=True, help="A flag to make a comment from the previous arguments.")
 @click.option('--guard', 'guard',               type=str, required = False, help="Header guard string. (Likely to be removed in the future)")
 @click.option('--out', 'output',                type=click.Path(exists=False, resolve_path=True), required=False, default=None, help="The path to write the output to.")
-@click.option('--width', 'width',               type=int, required = False, default=60, help="The width of the comments. (This controls text wrapping)")
+@click.option('--width', 'width',               type=int, required = False, default=72, help="The width of the comments. (This controls text wrapping)")
 @click.option('--indent', 'indent',             type=int, required = False, default=4, help="The number of spaces to use for indentation.")
 @click.option('--prefix', 'prefix',             type=str, required = False, default = '[', help="The prefix for the region name. (Will likely be removed in the future.)")
 @click.option('--suffix', 'suffix',             type=str, required = False, default = ']', help="THe suffix for the region. (Will likely be removed in the future.)")
@@ -344,6 +344,7 @@ def compound_box(args : list[cmd_slot], width : int = 72, indent : int = 4, pref
     """
     if not args:
         return ''
+    # If you're trying to go above 200, no.
     if width > 200:
         width = 200
     if width < 12:
