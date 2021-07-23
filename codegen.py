@@ -1,8 +1,42 @@
+#!/usr/bin/env python
 """
 This is a command line utility for generating code.
 It is a work in progress, and currently only supports
 generating C-Style comments.
 In the future, other languages will be supported as well.
+
+I wrote this code specifically for my own usage, and it is designed
+specifically for my system, but it should work similarly on a similar machine.
+
+If you plan to use this script, there are certain parts that you may want to
+modify to suit your needs.
+
+In the future, I will work on documenting how this works and updating it to work better.
+
+Currently, this code is janky, and probably doesn't work the way that it should.
+That being said, it can do some nifty things.
+
+Example usage:
+    python codegen.py -h"This is a comment header" -d"This is a comment description. The description will have a different indentation than the header." -h"You can intersperse headers and descriptions" -c -d"The -c flag tells the program to write the previous statements to a single comment."
+Output:
+    // ╔════════════════════════════════════════════════════════╗
+    // ║ This is a comment header                               ║
+    // ╠════════════════════════════════════════════════════════╣
+    // ║     This is a comment description. The description     ║
+    // ║     will have a different indentation than the header. ║
+    // ╠════════════════════════════════════════════════════════╣
+    // ║ You can intersperse headers and descriptions           ║
+    // ╚════════════════════════════════════════════════════════╝
+    // ╔════════════════════════════════════════════════════════╗
+    // ║     The -c flag tells the program to write the         ║
+    // ║     previous statements to a single comment.           ║
+    // ╚════════════════════════════════════════════════════════╝
+    
+The frame that you see around the text is made up of box-drawing characters, which are Unicode.
+https://en.wikipedia.org/wiki/Box-drawing_character
+If Unicode does not suit your needs, you should change the source code to remove those characters. (Look at the compound() function)
+    
+    
 """
 
 #requiered
@@ -12,7 +46,6 @@ import click
 import re
 import io
 from io import StringIO
-from pyperclip import copy
 import random
 import tempfile
 import subprocess
@@ -21,6 +54,8 @@ import shutil
 import pathlib
 import textwrap
 from enum import Enum
+# For reading input and displaying output.
+import tkinter as tk
 
 char_range = lambda first, last: (chr(_) for _ in range(ord(first), ord(last) + 1))
 
@@ -35,53 +70,64 @@ __random_bits = [
     *char_range('A','Z')
 ]
 
+def try_copy(text):
+    try:
+
+        # TODO: There is a way to use tkinter to copy to the clipboard.
+        #       We should use tkinter as a fallback.
+        import pyperclip
+        pyperclip.copy(text)
+    except ImportError:
+        print("Unable to copy because pyperclip is not installed. (pip install pyperclip)")
+
 def view_output(output, path=None):
     if path:
         abs_path = os.path.abspath(path)
         dir_name = pathlib.Path(os.path.dirname(abs_path))
+        # TODO: Determine whether or not we really should make the parent directories.
+        #       I feel like it may be a bad idea to do so.
         dir_name.mkdir(parents=True, exist_ok=True)
-        with open(path, 'w') as f:
+        with open(path, 'w', encoding='utf-8') as f:
             print(repr(output))
             f.write(output)
     else:
-        with tempfile.TemporaryDirectory() as d:
-            out_path = os.path.join(d, 'output.cpp')
-            with io.open(out_path, 'w', encoding='utf-8') as f:
-                f.write(output)
-            proc = subprocess.Popen([shutil.which('code'),'-n', out_path])
-            while proc.poll() is None:
-                if os.path.isfile(out_path):
-                    proc.terminate()
-                    break
+        # This allows us to view the output in a window.
+        # TODO: Now that we are using tkinter for viewing the output, we should also
+        #       add an option to view the output with an external program.
+        tkroot = tk.Tk()
+        textview = tk.Text(tkroot, wrap='none')
+        textview.insert(1.0, str(output))
+        textview['state'] = 'disabled'
+        textview.pack(expand=True, fill='both')
         
-            proc = subprocess.call([shutil.which('code'),'-n', out_path])
+        tkroot.mainloop()
 
 def has_var(name : str) -> bool:
     """
     Determines if `name` is in os.environ.
-    This is helpful if you want to add flags in a batch/shell script.
+    This is a helper function for default values that can receive data from the environment variables.
     """
     return name in os.environ
 
 @click.command()
-@click.option('/v', '--view', 'view',           required=False, is_flag=True, default=has_var('--view'))
-@click.option('/r','--randomize' ,'randomize',  required=False, is_flag=True, default=has_var('--randomize'))
-@click.option('/i', '--inside', 'inside',       required=False, is_flag=True, default=has_var('--inside'))
-@click.option('/c', '--copy', 'copyresult',     required=False, is_flag=True, default=has_var('--copy'))
-@click.option('/n', 'nocomments',               required=False, is_flag=True, default=has_var('--nocomments'))
-@click.option('-h', 'headers',                  required=False, multiple=True, default=None)
-@click.option('-d', 'descriptions',             required=False, multiple=True, default=None)
-@click.option('-r', 'regions',                  required=False, multiple=True, default=None)
-@click.option('-b','--begin', 'begin_stmts',    multiple=True, is_flag=True)
-@click.option('-e','--end', 'end_stmts',        multiple=True, is_flag=True)
-@click.option('-c', 'setcomment',               multiple=True, is_flag=True)
-@click.option('--guard', 'guard',               type=str, required = False)
-@click.option('--out', 'output',                type=click.Path(exists=False, resolve_path=True),required=False, default=None)
-@click.option('--width', 'width',               type=int, required = False, default=60)
-@click.option('--indent', 'indent',             type=int, required = False, default=4)
-@click.option('--prefix', 'prefix',             type=str, required = False, default = '[')
-@click.option('--suffix', 'suffix',             type=str, required = False, default = ']')
-@click.option('--lang', 'lang',                 type=click.Choice(['c', 'py', 'lua']), required=False, default='c')
+@click.option('/v', '--view', 'view',           required=False, is_flag=True, default=has_var('--view'), help="View the output externally.")
+@click.option('/r','--randomize' ,'randomize',  required=False, is_flag=True, default=has_var('--randomize'), help="Add random characters at the end of include guard to guarantee uniqueness.") # TODO: This option is for include guards. I should remove that.
+@click.option('/i', '--inside', 'inside',       required=False, is_flag=True, default=has_var('--inside'), help="Write the comment inside of the region rather than outside.") # This option is only for if you are creating regions, which are only valid in select languages.
+@click.option('/c', '--copy', 'copyresult',     required=False, is_flag=True, default=has_var('--copy'), help="Copy the output to the clipboard.")
+@click.option('/n', 'nocomments',               required=False, is_flag=True, default=has_var('--nocomments'), help="Do not create comments.")
+@click.option('-h', 'headers',                  required=False, multiple=True, default=None, help="A string that represents a comment header. (Like a title)")
+@click.option('-d', 'descriptions',             required=False, multiple=True, default=None, help="A description that is indented.")
+@click.option('-r', 'regions',                  required=False, multiple=True, default=None, help="Creates a region (C# or C/C++)")
+@click.option('-b','--begin', 'begin_stmts',    multiple=True, is_flag=True, help="(Reserved for future use)")
+@click.option('-e','--end', 'end_stmts',        multiple=True, is_flag=True, help="(Reserved for future use)")
+@click.option('-c', 'setcomment',               multiple=True, is_flag=True, help="A flag to make a comment from the previous arguments.")
+@click.option('--guard', 'guard',               type=str, required = False, help="Header guard string. (Likely to be removed in the future)")
+@click.option('--out', 'output',                type=click.Path(exists=False, resolve_path=True), required=False, default=None, help="The path to write the output to.")
+@click.option('--width', 'width',               type=int, required = False, default=60, help="The width of the comments. (This controls text wrapping)")
+@click.option('--indent', 'indent',             type=int, required = False, default=4, help="The number of spaces to use for indentation.")
+@click.option('--prefix', 'prefix',             type=str, required = False, default = '[', help="The prefix for the region name. (Will likely be removed in the future.)")
+@click.option('--suffix', 'suffix',             type=str, required = False, default = ']', help="THe suffix for the region. (Will likely be removed in the future.)")
+@click.option('--lang', 'lang',                 type=click.Choice(['c', 'py', 'lua']), required=False, default='c', help="The language to generate code for.")
 def command_line(
             view = False,
        randomize = True,
@@ -102,6 +148,7 @@ def command_line(
           suffix = ']',
           lang = 'c'
     ):
+    # TODO: Update this docstring to better describe what this program does.
     """
     This program is used for generating some source code.
     Mostly it's for generating C-style comments. It does not currently support
@@ -113,15 +160,16 @@ def command_line(
     regions = list(regions)
     argv = sys.argv
 
-    if '--copy' in os.environ:
-        copyresult = True
-
-    # The first step is to get the indices of all the region and description arguments.
-    # The idea is that the description should come directly after the region.
-
     def output_result(s):
+        """
+        This function is to output the result in some way.
+        """
+        # The --view flag was set, so we want to view the output in a window.
+        # If `output` is not None, it will write to a file instead of showing
+        # a window.
         if view:
             view_output(s, output)
+        # If `output` is not None, we will write to a file.
         elif output is not None:
             abs_path = os.path.abspath(output)
             dir_name = pathlib.Path(os.path.dirname(abs_path))
@@ -129,19 +177,25 @@ def command_line(
             with open(abs_path, 'w') as f:
                 f.write(output)
             print(s)
-            if copyresult:
-                copy(s)
         else:
             print(s)
-            if copyresult:
-                copy(s)
+        # If we want to copy the result, we will try to copy the result.
+        if copyresult:
+            try_copy(s)
+
+    # Command Buffer which will be sent to the compound() function to create our generated code.
     cmd_buffer = []
+    # Header index
     hi = 0
+    # Description index
     di = 0
+    # Region index
     ri = 0
 
     lines = []
-
+    # The first step is to get the indices of all the region and description arguments.
+    # The idea is that the description should come directly after the region.
+    # This will loop through the arguments collecting the command arguments (-h, -d, -r, -c)
     for v in argv:
         if v[:2] == '-h':
             if headers[hi][0] == '?':
@@ -220,6 +274,7 @@ def read_file(path):
         print(f'File was not found: {path}')
         return path
 
+# TODO: Modify this so that it can use tkinter instead.
 def read_input(prompt='Input', external=False):
     if not prompt:
         prompt = 'Input'
