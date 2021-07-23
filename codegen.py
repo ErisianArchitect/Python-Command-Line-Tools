@@ -15,6 +15,8 @@ In the future, I will work on documenting how this works and updating it to work
 
 Currently, this code is janky, and probably doesn't work the way that it should.
 That being said, it can do some nifty things.
+I threw this code together in a rush to get it working, so now I'm working on rewriting it 
+and figuring out what it actually needs to be.
 
 Example usage:
     python codegen.py -h"This is a comment header" -d"This is a comment description. The description will have a different indentation than the header." -h"You can intersperse headers and descriptions" -c -d"The -c flag tells the program to write the previous statements to a single comment."
@@ -35,8 +37,11 @@ Output:
 The frame that you see around the text is made up of box-drawing characters, which are Unicode.
 https://en.wikipedia.org/wiki/Box-drawing_character
 If Unicode does not suit your needs, you should change the source code to remove those characters. (Look at the compound() function)
-    
-    
+
+// ╔════════════════════════════════════════════════════════╗
+// ║ Future Plans                                           ║
+// ╚════════════════════════════════════════════════════════╝
+
 """
 
 #requiered
@@ -53,6 +58,7 @@ import os
 import shutil
 import pathlib
 import textwrap
+from functools import partial
 from enum import Enum
 # For reading input and displaying output.
 import tkinter as tk
@@ -70,15 +76,20 @@ __random_bits = [
     *char_range('A','Z')
 ]
 
-def try_copy(text):
+def clip_copy(text):
+    """Copies text to the clipboard."""
     try:
-
-        # TODO: There is a way to use tkinter to copy to the clipboard.
-        #       We should use tkinter as a fallback.
         import pyperclip
         pyperclip.copy(text)
     except ImportError:
-        print("Unable to copy because pyperclip is not installed. (pip install pyperclip)")
+        # tkinter fallback if pyperclip is not installed.
+        # https://stackoverflow.com/questions/11063458/python-script-to-copy-text-to-clipboard
+        r = tk.Tk()
+        r.withdraw()
+        r.clipboard_clear()
+        r.clipboard_append(str(text))
+        r.update() # to keep it in the clipbard after the window is closed.
+        r.destroy()
 
 def view_output(output, path=None):
     if path:
@@ -108,7 +119,9 @@ def has_var(name : str) -> bool:
     This is a helper function for default values that can receive data from the environment variables.
     """
     return name in os.environ
-
+# TODO: Figure out this mess because this just is not right.
+#       -o option should be used for output file
+#       We're converting this to a comment generator, since it already is one.
 @click.command()
 @click.option('/v', '--view', 'view',           required=False, is_flag=True, default=has_var('--view'), help="View the output externally.")
 @click.option('/r','--randomize' ,'randomize',  required=False, is_flag=True, default=has_var('--randomize'), help="Add random characters at the end of include guard to guarantee uniqueness.") # TODO: This option is for include guards. I should remove that.
@@ -181,7 +194,7 @@ def command_line(
             print(s)
         # If we want to copy the result, we will try to copy the result.
         if copyresult:
-            try_copy(s)
+            clip_copy(s)
 
     # Command Buffer which will be sent to the compound() function to create our generated code.
     cmd_buffer = []
@@ -193,6 +206,7 @@ def command_line(
     ri = 0
 
     lines = []
+    # Let's rewrite the loop below.
     # The first step is to get the indices of all the region and description arguments.
     # The idea is that the description should come directly after the region.
     # This will loop through the arguments collecting the command arguments (-h, -d, -r, -c)
@@ -216,7 +230,7 @@ def command_line(
             cmd_buffer.append(description(descriptions[di]))
             di += 1
         elif v[:2] == '-c':
-            lines.append(compound(cmd_buffer, width, indent, _comment_prefixes[lang]))
+            lines.append(compound_box(cmd_buffer, width, indent, _comment_prefixes[lang]))
             cmd_buffer.clear()
         elif v[:2] == '-r':
             if regions[ri][0] == '?':
@@ -227,7 +241,7 @@ def command_line(
             #     regions[ri] = read_file(regions[ri][1:])
             if not nocomments:
                 cmd_buffer.insert(0, header(regions[ri]))
-            note = compound(cmd_buffer, width, indent, _comment_prefixes[lang]) if cmd_buffer else ''
+            note = compound_box(cmd_buffer, width, indent, _comment_prefixes[lang]) if cmd_buffer else ''
             cmd_buffer.clear()
             if inside:
                 lines.append(f'#pragma region {prefix}{regions[ri]}{suffix}')
@@ -242,7 +256,7 @@ def command_line(
                 lines.append(f'#pragma endregion {prefix}{regions[ri]}{suffix}')
             ri += 1
     if cmd_buffer:
-        lines.append(compound(cmd_buffer, width, indent, _comment_prefixes[lang]))
+        lines.append(compound_box(cmd_buffer, width, indent, _comment_prefixes[lang]))
         cmd_buffer.clear()
     
     if guard is not None:
@@ -300,22 +314,36 @@ spacers = [' ' * i for i in range(200)]
 
 lorem = """Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."""
 
-#python gen.py -h"Test Header" -d"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum." -h"Other" -d"Nothing"
+#python codegen.py -h"Test Header" -d"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum." -h"Other" -d"Nothing"
 
+# This function needed to be written in order to wrap the text while preserving
+# empty lines.
 def wrap_text(text : str, width):
     lines = text.splitlines()
     for i, line in enumerate(lines):
+        # If the line is empty, just set the line to a space, otherwise wrap
+        # the text.
         if line == '':
             lines[i] = ' '
         else:
+            # This handy little trick lets us effectively insert lines into the list.
             lines[i:i+1] = textwrap.wrap(line, width)
     return lines
 
-def compound(args, width : int = 60, indent = 4, prefix = _comment_prefixes['c']):
+def wrap_helper(towrap : str, width : int, mapfunc):
+    """
+    Helper function to wrap text then map the returned lines to a function and return the resulting string.
+    Returns: argument towrap wrapped to the width provided and mapped using mapfunc
+    """
+    wrapped = wrap_text(towrap, width)
+    return '\n'.join(map(mapfunc, wrapped))
+
+def compound_box(args : list[cmd_slot], width : int = 72, indent : int = 4, prefix = _comment_prefixes['c']):
+    """
+    This creates a fancy box with word wrapped text. You shouldn't be calling this function unless you know what you're doing.
+    """
     if not args:
         return ''
-    for i, v in enumerate(args):
-        pass
     if width > 200:
         width = 200
     if width < 12:
@@ -330,13 +358,9 @@ def compound(args, width : int = 60, indent = 4, prefix = _comment_prefixes['c']
     _head = lambda t: ''.join((prefix, '║ ', t, spacers[inner_width - len(t)], ' ║'))
     _body = lambda t: ''.join((prefix, '║ ', spacers[indent] , t, spacers[indented_width - len(t)], ' ║'))
 
-    def _header(v : str):
-        wrapped = wrap_text(v, inner_width)
-        return '\n'.join(map(_head, wrapped))
-    
-    def _description(v : str):
-        wrapped = wrap_text(v, indented_width)
-        return '\n'.join(map(_body, wrapped))
+
+    _header = partial(wrap_helper, width=inner_width, mapfunc=_head)
+    _description = partial(wrap_helper, width=indented_width, mapfunc=_body)
 
     top = ''.join((prefix, '╔═', '═' * inner_width, '═╗'))
     divider = ''.join((prefix, '╠═', '═' * inner_width, '═╣'))
@@ -357,10 +381,10 @@ def compound(args, width : int = 60, indent = 4, prefix = _comment_prefixes['c']
     return '\n'.join(lines)
 
 def comment(title : str , info = None, width : int = 60, indent=0):
-    if description is not None:
-        return compound([header(title), description(info)], width, indent)
+    if info is not None:
+        return compound_box([header(title), description(info)], width, indent)
     else:
-        return compound([header(title)], width, indent)
+        return compound_box([header(title)], width, indent)
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
