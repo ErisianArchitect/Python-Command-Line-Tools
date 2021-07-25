@@ -160,7 +160,7 @@ import textwrap
 
 # This function needed to be written in order to wrap the text while preserving
 # empty lines.
-def wrap_text(text : str, width : int = 72):
+def wrap_text(text : str, width : int = 72) -> list[str]:
     """
     Wraps text to width and while preserving empty lines and
     indentation.
