@@ -161,6 +161,12 @@ import textwrap
 # This function needed to be written in order to wrap the text while preserving
 # empty lines.
 def wrap_text(text : str, width : int = 72):
+    """
+    Wraps text to width and while preserving empty lines and
+    indentation.
+
+    returns lines as list of strings.
+    """
     lines = text.splitlines()
     for i, line in enumerate(lines):
         # If the line is empty, just set the line to a space, otherwise wrap
