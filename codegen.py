@@ -326,7 +326,7 @@ def wrap_text(text : str, width):
         if line == '':
             lines[i] = ' '
         else:
-            # This handy little trick lets us effectively insert lines into the list.
+            # This handy little trick lets us effectively insert lines into the list while overwriting the old line.
             lines[i:i+1] = textwrap.wrap(line, width)
     return lines
 
