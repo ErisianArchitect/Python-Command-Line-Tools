@@ -128,6 +128,20 @@ Everything will automatically be wrapped.
 
 import sys
 import textwrap
+import functools
+
+_divider_chars = set('/=-*@%<>$&!:;|+.,?~#_^')
+
+@functools.cache
+def repeat_char(chr : str, count : int) -> str:
+    """
+    Cached character repeater. This does not check if chr is only one character, so use this wisely.
+    """
+    return chr * count
+
+#///////////////////////////////////////////////////////////////////////
+#// This is an example of a Python Forward Slash Box Comment.         //
+#///////////////////////////////////////////////////////////////////////
 
 # Because this program will use arguments like a command
 # stack, it will have to parse the arguments without 
