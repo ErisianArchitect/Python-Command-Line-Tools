@@ -123,37 +123,37 @@ def has_var(name : str) -> bool:
 #       -o option should be used for output file
 #       We're converting this to a comment generator, since it already is one.
 @click.command()
+@click.option('-h', 'headers',                  required=False, multiple=True, default=None, help="A string that represents a comment header. (Like a title)")
+@click.option('-d', 'descriptions',             required=False, multiple=True, default=None, help="A description that is indented.")
+@click.option('-r', 'regions',                  required=False, multiple=True, default=None, help="Creates a region (C# or C/C++)")
+@click.option('-b','--begin', 'begin_stmts',    required=False, multiple=True, is_flag=True, help="(Reserved for future use)")
+@click.option('-e','--end', 'end_stmts',        required=False, multiple=True, is_flag=True, help="(Reserved for future use)")
+@click.option('-c', 'setcomment',               required=False, multiple=True, is_flag=True, help="A flag to make a comment from the previous arguments.")
 @click.option('/v', '--view', 'view',           required=False, is_flag=True, default=has_var('--view'), help="View the output externally.")
 @click.option('/r','--randomize' ,'randomize',  required=False, is_flag=True, default=has_var('--randomize'), help="Add random characters at the end of include guard to guarantee uniqueness.") # TODO: This option is for include guards. I should remove that.
 @click.option('/i', '--inside', 'inside',       required=False, is_flag=True, default=has_var('--inside'), help="Write the comment inside of the region rather than outside.") # This option is only for if you are creating regions, which are only valid in select languages.
 @click.option('/c', '--copy', 'copyresult',     required=False, is_flag=True, default=has_var('--copy'), help="Copy the output to the clipboard.")
 @click.option('/n', 'nocomments',               required=False, is_flag=True, default=has_var('--nocomments'), help="Do not create comments.")
-@click.option('-h', 'headers',                  required=False, multiple=True, default=None, help="A string that represents a comment header. (Like a title)")
-@click.option('-d', 'descriptions',             required=False, multiple=True, default=None, help="A description that is indented.")
-@click.option('-r', 'regions',                  required=False, multiple=True, default=None, help="Creates a region (C# or C/C++)")
-@click.option('-b','--begin', 'begin_stmts',    multiple=True, is_flag=True, help="(Reserved for future use)")
-@click.option('-e','--end', 'end_stmts',        multiple=True, is_flag=True, help="(Reserved for future use)")
-@click.option('-c', 'setcomment',               multiple=True, is_flag=True, help="A flag to make a comment from the previous arguments.")
-@click.option('--guard', 'guard',               type=str, required = False, help="Header guard string. (Likely to be removed in the future)")
-@click.option('--out', 'output',                type=click.Path(exists=False, resolve_path=True), required=False, default=None, help="The path to write the output to.")
-@click.option('--width', 'width',               type=int, required = False, default=72, help="The width of the comments. (This controls text wrapping)")
-@click.option('--indent', 'indent',             type=int, required = False, default=4, help="The number of spaces to use for indentation.")
-@click.option('--prefix', 'prefix',             type=str, required = False, default = '[', help="The prefix for the region name. (Will likely be removed in the future.)")
-@click.option('--suffix', 'suffix',             type=str, required = False, default = ']', help="THe suffix for the region. (Will likely be removed in the future.)")
-@click.option('--lang', 'lang',                 type=click.Choice(['c', 'py', 'lua']), required=False, default='c', help="The language to generate code for.")
+@click.option('--guard', 'guard',               required=False, type=str, help="Header guard string. (Likely to be removed in the future)")
+@click.option('--out', 'output',                required=False, type=click.Path(exists=False, resolve_path=True), default=None, help="The path to write the output to.")
+@click.option('--width', 'width',               required=False, type=int, default=72, help="The width of the comments. (This controls text wrapping)")
+@click.option('--indent', 'indent',             required=False, type=int, default=4, help="The number of spaces to use for indentation.")
+@click.option('--prefix', 'prefix',             required=False, type=str, default = '[', help="The prefix for the region name. (Will likely be removed in the future.)")
+@click.option('--suffix', 'suffix',             required=False, type=str, default = ']', help="THe suffix for the region. (Will likely be removed in the future.)")
+@click.option('--lang', 'lang',                 required=False, type=click.Choice(['c', 'py', 'lua']), default='c', help="The language to generate code for.")
 def command_line(
-            view = False,
-       randomize = True,
-          inside = False,
-           guard = None,
-           copyresult = False,
-           nocomments = False,
          headers = (),
     descriptions = (),
-      setcomment = (),
          regions = (),
          begin_stmts = (),
          end_stmts = (),
+      setcomment = (),
+            view = False,
+       randomize = True,
+          inside = False,
+           copyresult = False,
+           nocomments = False,
+           guard = None,
           output = None,
            width = 60,
           indent = 4,
@@ -300,7 +300,7 @@ def read_input(prompt='Input', external=False):
                 with io.open(ext_path, 'r', encoding='utf-8') as f:
                     return f.read()
     else:
-        return input(prompt + ': ')
+        return input(prompt + ':')
 
 class cmd_slot:
     __slots__ = ('value')
