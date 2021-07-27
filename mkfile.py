@@ -20,10 +20,12 @@ _default_editor = os.environ.get('DEFAULTEDITOR', None) or shutil.which('code') 
 @click.command()
 @click.option('--editor', 'editor', required=False, default=_default_editor, help="Default editor to open if [-o|--open] flag is set.")
 @click.option('-o', '--open', 'open_in_editor', required = False, is_flag = True, default = False, help="Open in external editor. (VS Code)")
+@click.option('--data', 'data', required=False, type=str, default=None, help="The optional string to fill the file with.")
 @click.argument('paths', required=True, nargs=-1)
 def main(
     editor = _default_editor,
     open_in_editor = False,
+    data = None,
     paths = ()
     ):
     """
@@ -40,8 +42,10 @@ def main(
         dir_path = pathlib.Path(os.path.dirname(abs_path))
         # Force the directories to be created.
         dir_path.mkdir(parents=True, exist_ok=True)
-        # Create empty file at absolute path.
-        with open(abs_path, 'w'): pass
+        # Create file at absolute path.
+        with open(abs_path, 'w') as outfile:
+            if data:
+                outfile.write(data)
         # If we need to open in the external editor, we will open VS Code.
         # In the future, we can add another option for what command to run
         # to open the files.
