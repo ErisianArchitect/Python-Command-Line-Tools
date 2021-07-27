@@ -66,7 +66,7 @@ import tkinter as tk
 char_range = lambda first, last: (chr(_) for _ in range(ord(first), ord(last) + 1))
 
 _comment_prefixes = {
-    'c'         : '// ',
+    'cpp'         : '// ',
     'py'        : '# ',
     'lua'       : '-- ',
 }
@@ -140,7 +140,7 @@ def has_var(name : str) -> bool:
 @click.option('--indent', 'indent',             required=False, type=int, default=4, help="The number of spaces to use for indentation.")
 @click.option('--prefix', 'prefix',             required=False, type=str, default = '[', help="The prefix for the region name. (Will likely be removed in the future.)")
 @click.option('--suffix', 'suffix',             required=False, type=str, default = ']', help="THe suffix for the region. (Will likely be removed in the future.)")
-@click.option('--lang', 'lang',                 required=False, type=click.Choice(['c', 'py', 'lua']), default='c', help="The language to generate code for.")
+@click.option('--lang', 'lang',                 required=False, type=click.Choice(['cpp', 'py', 'lua']), default='cpp', help="The language to generate code for.")
 def command_line(
          headers = (),
     descriptions = (),
@@ -159,7 +159,7 @@ def command_line(
           indent = 4,
           prefix = '[',
           suffix = ']',
-          lang = 'c'
+          lang = 'cpp'
     ):
     # TODO: Update this docstring to better describe what this program does.
     """
@@ -316,9 +316,20 @@ lorem = """Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusm
 
 #python codegen.py -h"Test Header" -d"Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum." -h"Other" -d"Nothing"
 
+#======================================================================#
+# wrap_text function                                                   #
+#======================================================================#
+_leading_whitespace_re = re.compile(r'^\s+')
 # This function needed to be written in order to wrap the text while preserving
 # empty lines.
-def wrap_text(text : str, width):
+# TODO: Adding tabs into the middle of a line can break wrapping algorithm somehow.
+def wrap_text(text : str, width : int = 72, indent : int = 4) -> list[str]:
+    """
+    Wraps text to width and while preserving empty lines and
+    indentation.
+
+    returns lines as list of strings.
+    """
     lines = text.splitlines()
     for i, line in enumerate(lines):
         # If the line is empty, just set the line to a space, otherwise wrap
@@ -326,11 +337,27 @@ def wrap_text(text : str, width):
         if line == '':
             lines[i] = ' '
         else:
+            # Continue if the line doesn't need to be wrapped.
+            if len(line) <= width:
+                continue
+            # Next, we read all whitespace at the beginning of the line.
+            # This allows us to get the values for initial_indent and subsequent_indent.
+            m = _leading_whitespace_re.match(line)
+            line_indent = ''
+            if m is not None:
+                # Set line_indent to our matched whitespace.
+                line_indent = line[:m.end()]
+                # Remove the whitespace from the line.
+                line = line[m.end():]
+            # TODO: Solve how to wrap indented lines while keeping them at their indentation position.
+            #       We might be able to achieve this by replacing all tabs with a number of spaces, or
+            #       otherwise choosing a width for tabs to be.
             # This handy little trick lets us effectively insert lines into the list while overwriting the old line.
-            lines[i:i+1] = textwrap.wrap(line, width)
+            lines[i:i+1] = textwrap.wrap(line, width, tabsize=indent, expand_tabs = True, initial_indent=line_indent, subsequent_indent=line_indent)
     return lines
+_wrap_default_mapper = lambda v: v
 
-def wrap_helper(towrap : str, width : int, mapfunc):
+def wrap_helper(towrap : str, width : int = 72, indent : int = 4, mapfunc = _wrap_default_mapper):
     """
     Helper function to wrap text then map the returned lines to a function and return the resulting string.
     Returns: argument towrap wrapped to the width provided and mapped using mapfunc
@@ -338,7 +365,7 @@ def wrap_helper(towrap : str, width : int, mapfunc):
     wrapped = wrap_text(towrap, width)
     return '\n'.join(map(mapfunc, wrapped))
 
-def compound_box(args : list[cmd_slot], width : int = 72, indent : int = 4, prefix = _comment_prefixes['c']):
+def compound_box(args : list[cmd_slot], width : int = 72, indent : int = 4, prefix : str = _comment_prefixes['cpp'], margin = 1, **kwargs):
     """
     This creates a fancy box with word wrapped text. You shouldn't be calling this function unless you know what you're doing.
     """
@@ -353,15 +380,36 @@ def compound_box(args : list[cmd_slot], width : int = 72, indent : int = 4, pref
         indent = 0
     if indent > 8:
         indent = 8
-    edge_width = 6
+    box_left =          kwargs.get('box_left', '║ ')
+    box_right =         kwargs.get('box_right', ' ║')
+    box_topleft =       kwargs.get('box_topleft', '╔═')
+    box_topright =      kwargs.get('box_topright', '═╗')
+    box_divleft =       kwargs.get('box_divleft', '╠═')
+    box_divright =      kwargs.get('box_divright', '═╣')
+    box_bottomleft =    kwargs.get('box_bottomleft', '╚═')
+    box_bottomright =   kwargs.get('box_bottomright', '═╝')
+    box_div =           kwargs.get('box_div', '═')
+    if type(margin) is int:
+        margin_left = margin
+        margin_right = margin
+    elif type(margin) is tuple and len(margin) == 2:
+        margin_left = margin[0]
+        margin_right = margin[1]
+    else:
+        margin_left = 1
+        margin_right = 1
+    # edge_width is the width on the left and right side that is not
+    # occupied by wrapped text. This includes the prefix, the left-box,
+    # the left and right margins. This helps us to get the wrap width.
+    edge_width = len(box_left) + len(box_right) + len(prefix) + (margin_left + margin_right)
     inner_width = width - edge_width
     indented_width = inner_width - indent
     _head = lambda t: ''.join((prefix, '║ ', t, spacers[inner_width - len(t)], ' ║'))
     _body = lambda t: ''.join((prefix, '║ ', spacers[indent] , t, spacers[indented_width - len(t)], ' ║'))
 
 
-    _header = partial(wrap_helper, width=inner_width, mapfunc=_head)
-    _description = partial(wrap_helper, width=indented_width, mapfunc=_body)
+    _header = partial(wrap_helper, width=inner_width, indent=indent, mapfunc=_head)
+    _description = partial(wrap_helper, width=indented_width, indent=indent, mapfunc=_body)
 
     top = ''.join((prefix, '╔═', '═' * inner_width, '═╗'))
     divider = ''.join((prefix, '╠═', '═' * inner_width, '═╣'))
