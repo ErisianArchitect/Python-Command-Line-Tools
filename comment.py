@@ -2,6 +2,8 @@
 This is a command line program to generate comments for
 various programming languages. This module requires no additional 
 dependencies and can be run from the command line.
+This does not need to generate comments, it can also generate the fancy
+boxes and wrapped text without it being a comment.
 
 ////////////////////////////////////////////////////////////////////////
 //  Goals                                                             //
@@ -127,11 +129,16 @@ Everything will automatically be wrapped.
 """
 
 import sys
+import re
 import textwrap
 import functools
 
+# This set will be used to check if a character is a valid divider character.
 _divider_chars = set('/=-*@%<>$&!:;|+.,?~#_^')
 
+# We want the following function to be cached so that we don't
+# needlessly create duplicates since this function will be used 
+# a lot when generating comments.
 @functools.cache
 def repeat_char(chr : str, count : int) -> str:
     """
@@ -172,9 +179,12 @@ def repeat_char(chr : str, count : int) -> str:
 ##############################################################
 #                        #                                   #
 
+
+_leading_whitespace_re = re.compile(r'^\s+')
 # This function needed to be written in order to wrap the text while preserving
 # empty lines.
-def wrap_text(text : str, width : int = 72) -> list[str]:
+# TODO: Adding tabs into the middle of a line can break wrapping algorithm somehow.
+def wrap_text(text : str, width : int = 72, indent : int = 4) -> list[str]:
     """
     Wraps text to width and while preserving empty lines and
     indentation.
@@ -188,8 +198,23 @@ def wrap_text(text : str, width : int = 72) -> list[str]:
         if line == '':
             lines[i] = ' '
         else:
+            # Continue if the line doesn't need to be wrapped.
+            if len(line) <= width:
+                continue
+            # Next, we read all whitespace at the beginning of the line.
+            # This allows us to get the values for initial_indent and subsequent_indent.
+            m = _leading_whitespace_re.match(line)
+            line_indent = ''
+            if m is not None:
+                # Set line_indent to our matched whitespace.
+                line_indent = line[:m.end()]
+                # Remove the whitespace from the line.
+                line = line[m.end():]
+            # TODO: Solve how to wrap indented lines while keeping them at their indentation position.
+            #       We might be able to achieve this by replacing all tabs with a number of spaces, or
+            #       otherwise choosing a width for tabs to be.
             # This handy little trick lets us effectively insert lines into the list while overwriting the old line.
-            lines[i:i+1] = textwrap.wrap(line, width)
+            lines[i:i+1] = textwrap.wrap(line, width, tabsize=indent, expand_tabs = True, initial_indent=line_indent, subsequent_indent=line_indent)
     return lines
 
 if __name__ == '__main__':
