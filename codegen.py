@@ -41,7 +41,9 @@ If Unicode does not suit your needs, you should change the source code to remove
 // ╔════════════════════════════════════════════════════════╗
 // ║ Future Plans                                           ║
 // ╚════════════════════════════════════════════════════════╝
-
+- Add support for other languages.
+- Implement styles
+- Add support for input from tkinter.
 """
 
 #requiered
