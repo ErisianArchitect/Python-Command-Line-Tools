@@ -146,6 +146,13 @@ def repeat_char(chr : str, count : int) -> str:
     """
     return chr * count
 
+@functools.cache
+def spaces(n : int) -> str:
+    """
+    Returns a string containing n spaces.
+    """
+    return ' ' * n
+
 #///////////////////////////////////////////////////////////////////////
 #// This is an example of a Python Forward Slash Box Comment.         //
 #///////////////////////////////////////////////////////////////////////
@@ -179,7 +186,6 @@ def repeat_char(chr : str, count : int) -> str:
 ##############################################################
 #                        #                                   #
 
-
 _leading_whitespace_re = re.compile(r'^\s+')
 # This function needed to be written in order to wrap the text while preserving
 # empty lines.
@@ -198,6 +204,7 @@ def wrap_text(text : str, width : int = 72, indent : int = 4) -> list[str]:
         if line == '':
             lines[i] = ' '
         else:
+            line = line.expandtabs(indent)
             # Continue if the line doesn't need to be wrapped.
             if len(line) <= width:
                 continue
@@ -214,8 +221,26 @@ def wrap_text(text : str, width : int = 72, indent : int = 4) -> list[str]:
             #       We might be able to achieve this by replacing all tabs with a number of spaces, or
             #       otherwise choosing a width for tabs to be.
             # This handy little trick lets us effectively insert lines into the list while overwriting the old line.
-            lines[i:i+1] = textwrap.wrap(line, width, tabsize=indent, expand_tabs = True, initial_indent=line_indent, subsequent_indent=line_indent)
+            lines[i:i+1] = map(lambda v: line_indent + v ,textwrap.wrap(line, width - len(line_indent), tabsize=indent, expand_tabs = True))
     return lines
+
+def cpp_comment(text : str, width : int, indent : 4):
+    """
+    This will create a C++ Box-Style comment that looks like this:
+    ////////////////////////////////////////////////////////////////////////////////
+    //                                                                            //
+    ////////////////////////////////////////////////////////////////////////////////
+    Tabs at the beginning of a line are acceptable, but tabs in the middle of a line will break
+    the algorithm. This is not preventable by me unless I wanted to rewrite the textwrap algo.
+    """
+    border = '/' * width
+    edgewidth = 6
+    innerwidth = width - edgewidth
+    line_format = lambda line: ''.join(['// ', line, spaces(innerwidth - len(line)), ' //'])
+    lines = wrap_text(text, innerwidth, indent)
+    mid_text = '\n'.join(map(line_format, lines))
+    return '\n'.join([border, mid_text, border])
+
 
 if __name__ == '__main__':
 	for arg in sys.argv:
