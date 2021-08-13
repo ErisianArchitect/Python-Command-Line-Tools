@@ -224,7 +224,7 @@ def wrap_text(text : str, width : int = 72, indent : int = 4) -> list[str]:
             lines[i:i+1] = map(lambda v: line_indent + v ,textwrap.wrap(line, width - len(line_indent), tabsize=indent, expand_tabs = True))
     return lines
 
-def cpp_comment(text : str, width : int, indent : 4):
+def cpp_comment(text : str, width : int = 72, indent : int = 4):
     """
     This will create a C++ Box-Style comment that looks like this:
     ////////////////////////////////////////////////////////////////////////////////
